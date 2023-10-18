@@ -4,6 +4,7 @@ class Model
     public static $conection = null;
     public $table = '';
     public $id = 'id';
+    public $idType = 'i';
     public $schema = '';
     private $query = [
         'where' => "1",
@@ -13,6 +14,13 @@ class Model
         "limitStart" => 0,
         "limitCount" => 0
     ];
+
+    public function findById($id){
+        $query = "SELECT * FROM $this->table WHERE $this->id = ?";
+        $sql = $this::$conection->prepare($query);
+        $sql->bind_param($this->idType, $id);
+        return json_decode(json_encode($this::select($sql)));
+    }
 
     public function where($col, $syntax, $value, $valueType)
     {
