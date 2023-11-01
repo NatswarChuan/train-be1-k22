@@ -2,29 +2,37 @@
 class Model
 {
     public static $conection = null;
-    public $table = '';
-    public $id = 'id';
-    public $idType = 'i';
-    public $schema = '';
+    public static $_table = '';
+    public static $_id = 'id';
+    public static $idType = 'i';
+    public static $_class;
+
+    private $dataType = [];
     private $query = [
         'where' => "1",
         'joins' => "",
         "values" => [],
         "valueTypes" => "",
         "limitStart" => 0,
-        "limitCount" => 0
+        "limitCount" => 0,
+        "groupBy" => [],
+        "orderBy" => []
     ];
 
-    public function findById($id){
-        $query = "SELECT * FROM $this->table WHERE $this->id = ?";
-        $sql = $this::$conection->prepare($query);
-        $sql->bind_param($this->idType, $id);
-        return json_decode(json_encode($this::select($sql)));
+
+    public function __construct()
+    {
+        self::createConection();
+        $query = "SELECT `COLUMN_NAME` AS name, `data_type` AS type FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?";
+        foreach (self::selectQuery($query, "ss", [DB_NAME, static::$_table]) as $value) {
+            $this->dataType[$value["name"]] = DATA_TYPE_MAPPINGS[$value["type"]];
+            $this->{$value["name"]} = null;
+        }
     }
 
     public function where($col, $syntax, $value, $valueType)
     {
-        if($this->query['where'] == "1"){
+        if ($this->query['where'] == "1") {
             $this->query['where'] = "";
         }
         if (strlen($this->query['where'])) {
@@ -38,7 +46,7 @@ class Model
 
     public function orWhere($col, $syntax, $value)
     {
-        if($this->query['where'] == "1"){
+        if ($this->query['where'] == "1") {
             $this->query['where'] = "";
         }
         $this->query['where'] .= "OR $col $syntax $value";
@@ -47,119 +55,140 @@ class Model
 
     public function join($table, $onTable, $onThis = null)
     {
-        $onThis = $onThis ? $onThis : $this->id;
-        $this->query['joins'] .= "JOIN $table ON $table.$onTable = $this->table.$onThis";
+        $onThis = $onThis ? $onThis : $this->_id;
+        $thisTable = static::$_table;
+        $this->query['joins'] .= "JOIN $table ON $table.$onTable = $thisTable.$onThis";
+        return $this;
+    }
+
+    public function groupBy($col)
+    {
+        array_push($this->query["groupBy"], $col);
+        return $this;
+    }
+
+    public function orderBy($col, $type = "DESC")
+    {
+        array_push($this->query["orderBy"], "$col $type");
         return $this;
     }
 
     public function get($params = ["*"])
     {
-        $select = implode(",", $params);
+        self::createConection();
+        $result = [];
+        $select = implode(", ", $params);
         $joins = $this->query["joins"];
         $where = $this->query["where"];
-        $query = "SELECT $select FROM $this->table $joins WHERE $where";
-        if($this->query["limitCount"] > 0){
+
+        $groupBy = "";
+        if (count($this->query["groupBy"]) > 0) {
+            $groupBy = $this->query["groupBy"];
+            $groupBy = implode(", ", $groupBy);
+            $groupBy .= "GROUP BY $groupBy";
+        }
+
+        $orderBy = "";
+        if (count($this->query["orderBy"]) > 0) {
+            $orderBy = $this->query["orderBy"];
+            $orderBy = implode(", ", $orderBy);
+            $orderBy .= "ORDER BY $orderBy";
+        }
+
+        $table = static::$_table;
+        $query = "SELECT $select FROM $table $joins WHERE $where $groupBy $orderBy";
+        if ($this->query["limitCount"] > 0) {
             $query .= " LIMIT ?, ?";
-            array_push($this->query["values"],$this->query["limitStart"]);
-            array_push($this->query["values"],$this->query["limitCount"]);
+            array_push($this->query["values"], $this->query["limitStart"]);
+            array_push($this->query["values"], $this->query["limitCount"]);
             $this->query["valueTypes"] .= "ii";
         }
         $sql = $this::$conection->prepare($query);
         $sql->bind_param($this->query["valueTypes"], ...$this->query["values"]);
+        $data = $this::select($sql);
+        foreach ($data as $value) {
+            array_push($result, self::createModel( $value));
+        }
+
         $this->query = [
-            'where' => "",
+            'where' => "1",
             'joins' => "",
             "values" => [],
             "valueTypes" => "",
-        ];
-        return json_decode(json_encode($this::select($sql)));
+            "limitStart" => 0,
+            "limitCount" => 0,
+            "groupBy" => [],
+            "orderBy" => ""
+        ];;
+
+        return $result;
     }
 
-    public function save($params)
+    public function first($params = ["*"]){
+        return $this->get($params)[0];
+    }
+
+    public function save()
     {
-        return $this->genQueryString($params, "REPLACE");
-    }
-
-    public function insert($params){
-        $this->genQueryString($params, "INSERT");
-        return self::$conection->insert_id;
-    }
-
-    public function update($params){
-        $col = [];
+        self::createConection();
+        $table = static::$_table;
+        $update = [];
         $data = [];
-        $type = [];
-        $where = $this->query["where"];
-        foreach ($params as $key => $value) {
-            array_push($col, "$key = ?");
-            array_push($data, $value[0]);
-            array_push($type, $value[1]);
-        }
-        $col = implode(",", $col);
-        $type = implode("", $type);
-        $query = "UPDATE $this->table SET $col WHERE $where";
-        $sql = self::$conection->prepare($query);
-        $type .= $this->query["valueTypes"];
-        $data = array_merge($data,$this->query["values"]);
-        $sql->bind_param($type, ...$data);
-        $this->query = [
-            'where' => "",
-            'joins' => "",
-            "values" => [],
-            "valueTypes" => "",
-        ];
-        return $sql->execute();
-    }
 
-    public function delete(){
-        $where = $this->query["where"];
-        $query = "DELETE FROM $this->table WHERE $where";
-        $sql = self::$conection->prepare($query);
-        $type = $this->query["valueTypes"];
-        $sql->bind_param($type, ...$this->query["values"]);
-        $this->query = [
-            'where' => "",
-            'joins' => "",
-            "values" => [],
-            "valueTypes" => "",
-        ];
-        return $sql->execute();
-    }
-
-    public function limit($start,$count){
-        $this->query["limitStart"] = $start;
-        $this->query["limitCount"] = $count;
-        return $this;
-    }
-
-    private function genQueryString($params, $query){
-        $col = [];
-        $syntax = [];
-        $data = [];
-        $type = [];
-        foreach ($params as $key => $value) {
-            array_push($col, $key);
-            array_push($syntax, "?");
-            array_push($data, $value[0]);
-            array_push($type, $value[1]);
+        foreach ($this->dataType  as $key => $value) {
+            array_push($update, "$key = ?");
+            array_push($data, $this->{$key});
         }
 
-        $col = implode(",", $col);
-        $syntax = implode(",", $syntax);
-        $type = implode("", $type);
-        $query = "$query INTO $this->table($col) VALUES ($syntax)";
+        $type = implode("", $this->dataType);
+        $update = implode(",", $update);
+        $query = "REPLACE $table SET $update";
+
         $sql = self::$conection->prepare($query);
         $sql->bind_param($type, ...$data);
-        return $sql->execute();
+        $sql->execute();
     }
 
-    public function __construct()
+    public static function findById($id, $class)
     {
-        if (!self::$conection) {
-            self::$conection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT);
-            self::$conection->set_charset('utf8mb4');
+        $table = static::$_table;
+        $typeId = static::$idType;
+        $_id = static::$_id;
+        $data = self::selectQuery("SELECT * FROM $table where $_id = ?", $typeId, [$id])[0];
+
+        return self::createModel($data);
+    }
+
+    public static function all($class)
+    {
+        $result = [];
+        $table = static::$_table;
+        self::createConection();
+        $sql = self::$conection->prepare("SELECT * FROM $table");
+        $data = self::select($sql);
+
+        foreach ($data as $value) {
+            array_push($result, self::createModel($value));
         }
-        return self::$conection;
+
+        return $result;
+    }
+
+    private static function createModel($data)
+    {
+        $result = new static::$_class();
+        foreach ($data  as $key => $value) {
+            $result->{$key} = $value;
+        }
+
+        return $result;
+    }
+
+    private static function selectQuery($query, $type = null, $data = [])
+    {
+        $sql = self::$conection->prepare($query);
+        !empty($type) && $sql->bind_param($type, ...$data);
+        return self::select($sql);
     }
 
     public static function select($sql)
@@ -168,5 +197,17 @@ class Model
         $sql->execute();
         $items = $sql->get_result()->fetch_all(MYSQLI_ASSOC);
         return $items;
+    }
+
+    private static function createConection()
+    {
+        if (!self::$conection) {
+            self::$conection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT);
+            self::$conection->set_charset('utf8mb4');
+        }
+    }
+
+    public static function test(){
+        return new static::$_class();
     }
 }

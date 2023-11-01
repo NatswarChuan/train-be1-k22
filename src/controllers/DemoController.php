@@ -3,12 +3,16 @@ class DemoController extends Controller
 {
     public  function doGet()
     {
-        return view("form");
+        $a = new ProductModel();
+        // $a->name = "cc";
+        // $a->save();
+        var_dump($a->test());die();
+        // return view("form");
     }
 
     public  function doPost()
     {
-        return view("form-send",[
+        return view("form-send", [
             "name" => $this->request->body->name,
             "email" => $this->request->body->email,
             "website" => $this->request->body->website,

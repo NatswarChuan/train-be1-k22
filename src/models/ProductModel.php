@@ -1,4 +1,5 @@
 <?php
 class ProductModel extends Model{
-    public $table = 'products';
+    public static $_table = 'products';
+    public static $_class = self::class;
 }
