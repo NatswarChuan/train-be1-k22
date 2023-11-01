@@ -3,11 +3,7 @@ class DemoController extends Controller
 {
     public  function doGet()
     {
-        $a = new ProductModel();
-        // $a->name = "cc";
-        // $a->save();
-        var_dump($a->test());die();
-        // return view("form");
+        return view("form");
     }
 
     public  function doPost()

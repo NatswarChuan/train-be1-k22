@@ -1,11 +1,11 @@
 <?php
-class Model
+abstract class Model
 {
     public static $conection = null;
+    public static $_query;
     public static $_table = '';
     public static $_id = 'id';
     public static $idType = 'i';
-    public static $_class;
 
     private $dataType = [];
     private $query = [
@@ -25,92 +25,108 @@ class Model
         self::createConection();
         $query = "SELECT `COLUMN_NAME` AS name, `data_type` AS type FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?";
         foreach (self::selectQuery($query, "ss", [DB_NAME, static::$_table]) as $value) {
-            $this->dataType[$value["name"]] = DATA_TYPE_MAPPINGS[$value["type"]];
-            $this->{$value["name"]} = null;
+            $this->dataType[TienIch::snakeToCamel($value["name"])] = DATA_TYPE_MAPPINGS[$value["type"]];
+            $this->{TienIch::snakeToCamel($value["name"])} = null;
         }
     }
 
-    public function where($col, $syntax, $value, $valueType)
+    public static function baseWhere($col, $syntax, $value,$type)
     {
-        if ($this->query['where'] == "1") {
-            $this->query['where'] = "";
+        if(static::$_query == null){
+            static::$_query = new static;
         }
-        if (strlen($this->query['where'])) {
-            $this->query['where'] .= "AND ";
+
+        if (static::$_query->query['where'] == "1") {
+            static::$_query->query['where'] = "";
         }
-        $this->query['where'] .= "$col $syntax ?";
-        array_push($this->query["values"], $value);
-        $this->query["valueTypes"] .= $valueType;
-        return $this;
+        if (strlen(static::$_query->query['where'])) {
+            static::$_query->query['where'] .= $type;
+        }
+        static::$_query->query['where'] .= "$col $syntax ?";
+        array_push(static::$_query->query["values"], $value);
+        static::$_query->query["valueTypes"] .= static::$_query->dataType[TienIch::camelToSnake($col)];
+        return static::$_query;
     }
 
-    public function orWhere($col, $syntax, $value)
+    public static function orWhere($col, $syntax, $value)
     {
-        if ($this->query['where'] == "1") {
-            $this->query['where'] = "";
-        }
-        $this->query['where'] .= "OR $col $syntax $value";
-        return $this;
+        return self::baseWhere($col, $syntax, $value,"OR ");
     }
 
-    public function join($table, $onTable, $onThis = null)
+    public static function where($col, $syntax, $value)
     {
-        $onThis = $onThis ? $onThis : $this->_id;
+        return self::baseWhere($col, $syntax, $value,"AND ");
+    }
+
+    public static function join($table, $onTable, $onThis = null)
+    {
+        if(static::$_query == null){
+            static::$_query = new static;
+        }
+        $onThis = $onThis ? $onThis : static::$_query->_id;
         $thisTable = static::$_table;
-        $this->query['joins'] .= "JOIN $table ON $table.$onTable = $thisTable.$onThis";
-        return $this;
+        static::$_query->query['joins'] .= "JOIN $table ON $table.$onTable = $thisTable.$onThis";
+        return static::$_query;
     }
 
-    public function groupBy($col)
+    public static function groupBy($col)
     {
-        array_push($this->query["groupBy"], $col);
-        return $this;
+        if(static::$_query == null){
+            static::$_query = new static;
+        }
+        array_push(static::$_query->query["groupBy"], $col);
+        return static::$_query;
     }
 
-    public function orderBy($col, $type = "DESC")
+    public static function orderBy($col, $type = "DESC")
     {
-        array_push($this->query["orderBy"], "$col $type");
-        return $this;
+        if(static::$_query == null){
+            static::$_query = new static;
+        }
+        array_push(static::$_query->query["orderBy"], "$col $type");
+        return static::$_query;
     }
 
-    public function get($params = ["*"])
+    public static function get($params = ["*"])
     {
+        if(static::$_query == null){
+            static::$_query = new static;
+        }
         self::createConection();
         $result = [];
         $select = implode(", ", $params);
-        $joins = $this->query["joins"];
-        $where = $this->query["where"];
+        $joins = static::$_query->query["joins"];
+        $where = static::$_query->query["where"];
 
         $groupBy = "";
-        if (count($this->query["groupBy"]) > 0) {
-            $groupBy = $this->query["groupBy"];
+        if (count(static::$_query->query["groupBy"]) > 0) {
+            $groupBy = static::$_query->query["groupBy"];
             $groupBy = implode(", ", $groupBy);
             $groupBy .= "GROUP BY $groupBy";
         }
 
         $orderBy = "";
-        if (count($this->query["orderBy"]) > 0) {
-            $orderBy = $this->query["orderBy"];
+        if (count(static::$_query->query["orderBy"]) > 0) {
+            $orderBy = static::$_query->query["orderBy"];
             $orderBy = implode(", ", $orderBy);
             $orderBy .= "ORDER BY $orderBy";
         }
 
         $table = static::$_table;
         $query = "SELECT $select FROM $table $joins WHERE $where $groupBy $orderBy";
-        if ($this->query["limitCount"] > 0) {
+        if (static::$_query->query["limitCount"] > 0) {
             $query .= " LIMIT ?, ?";
-            array_push($this->query["values"], $this->query["limitStart"]);
-            array_push($this->query["values"], $this->query["limitCount"]);
-            $this->query["valueTypes"] .= "ii";
+            array_push(static::$_query->query["values"], static::$_query->query["limitStart"]);
+            array_push(static::$_query->query["values"], static::$_query->query["limitCount"]);
+            static::$_query->query["valueTypes"] .= "ii";
         }
-        $sql = $this::$conection->prepare($query);
-        $sql->bind_param($this->query["valueTypes"], ...$this->query["values"]);
-        $data = $this::select($sql);
+      
+        $data = self::selectQuery($query, static::$_query->query["valueTypes"],static::$_query->query["values"]);
         foreach ($data as $value) {
             array_push($result, self::createModel( $value));
         }
 
-        $this->query = [
+        static::$_query->query = [
             'where' => "1",
             'joins' => "",
             "values" => [],
@@ -124,8 +140,11 @@ class Model
         return $result;
     }
 
-    public function first($params = ["*"]){
-        return $this->get($params)[0];
+    public static function first($params = ["*"]){
+        if(static::$_query == null){
+            static::$_query = new static;
+        }
+        return static::$_query->get($params)[0];
     }
 
     public function save()
@@ -149,7 +168,7 @@ class Model
         $sql->execute();
     }
 
-    public static function findById($id, $class)
+    public static function findById($id)
     {
         $table = static::$_table;
         $typeId = static::$idType;
@@ -159,12 +178,13 @@ class Model
         return self::createModel($data);
     }
 
-    public static function all($class)
+    public static function all($params = ["*"])
     {
         $result = [];
         $table = static::$_table;
         self::createConection();
-        $sql = self::$conection->prepare("SELECT * FROM $table");
+        $params = implode(",",$params);
+        $sql = self::$conection->prepare("SELECT $params FROM $table");
         $data = self::select($sql);
 
         foreach ($data as $value) {
@@ -176,9 +196,10 @@ class Model
 
     private static function createModel($data)
     {
-        $result = new static::$_class();
+        $class = static::class;
+        $result = new $class();
         foreach ($data  as $key => $value) {
-            $result->{$key} = $value;
+            $result->{TienIch::snakeToCamel($key)} = $value;
         }
 
         return $result;
@@ -205,9 +226,5 @@ class Model
             self::$conection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT);
             self::$conection->set_charset('utf8mb4');
         }
-    }
-
-    public static function test(){
-        return new static::$_class();
     }
 }

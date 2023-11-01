@@ -1,6 +1,16 @@
 <?php
 class TienIch
 {
+    static function camelToSnake($input)
+    {
+        return strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $input));
+    }
+    static function snakeToCamel($input)
+    {
+        return lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $input))));
+    }
+
+
     static function vn_to_str($str)
     {
 
