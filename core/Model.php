@@ -58,14 +58,15 @@ abstract class Model
         return self::baseWhere($col, $syntax, $value,"AND ");
     }
 
-    public static function join($table, $onTable, $onThis = null)
+    public static function join($table, $onTable, $onThis = null,$thisTable = null)
     {
         if(static::$_query == null){
             static::$_query = new static;
         }
-        $onThis = $onThis ? $onThis : static::$_query->_id;
-        $thisTable = static::$_table;
-        static::$_query->query['joins'] .= "JOIN $table ON $table.$onTable = $thisTable.$onThis";
+        $onThis = $onThis == null ? $onThis : static::$_id;
+        $thisTable = $thisTable  ? $thisTable  : static::$_table;
+        static::$_query->query['joins'] .= " JOIN $table ON $table.$onTable = $thisTable.$onThis";
+        var_dump(" JOIN $table ON $table.$onTable = $thisTable.$onThis",$onTable);
         return static::$_query;
     }
 
@@ -194,9 +195,9 @@ abstract class Model
         return $result;
     }
 
-    private static function createModel($data)
+    private static function createModel($data, $class = null)
     {
-        $class = static::class;
+        $class = $class == null ? static::class : $class;
         $result = new $class();
         foreach ($data  as $key => $value) {
             $result->{TienIch::snakeToCamel($key)} = $value;
@@ -207,6 +208,7 @@ abstract class Model
 
     private static function selectQuery($query, $type = null, $data = [])
     {
+        self::createConection();
         $sql = self::$conection->prepare($query);
         !empty($type) && $sql->bind_param($type, ...$data);
         return self::select($sql);
@@ -218,6 +220,46 @@ abstract class Model
         $sql->execute();
         $items = $sql->get_result()->fetch_all(MYSQLI_ASSOC);
         return $items;
+    }
+
+    protected static function belongToMany($tableClass, $relationTable, $relationTableId = null, $relationThisTableId = null){
+        self::createConection();
+        $relationTableId =  $relationTableId == null ? $tableClass::$_id : $relationTableId;
+        $relationThisTableId = $relationThisTableId == null ? static::$_id : $relationThisTableId;
+        $table = $tableClass::$_table;
+        $thisTable = static::$_table;
+        $thisId = static::$_id;
+        $tableId = $tableClass::$_id;
+        $data = [];
+        $query = "SELECT $table.* FROM $thisTable JOIN $relationTable ON $relationTable.$relationThisTableId =  $thisTable.$thisId JOIN $table ON $table.$tableId = $relationTable.$relationTableId";
+        foreach (self::selectQuery($query) as $key => $value) {
+            array_push($data, self::createModel($value, $tableClass));
+        }
+        return $data;
+    }
+
+    protected static function hasMany($tableClass, $onTable , $onThis = null){
+        self::createConection();
+        $onThis = $onThis == null ? static::$_id : $onThis;
+        $table = $tableClass::$_table;
+        $thisTable = static::$_table;
+        $data = [];
+        $query = "SELECT $table.* FROM $thisTable JOIN $table ON $table.$onTable =  $thisTable.$onThis";
+
+        foreach (self::selectQuery($query) as $key => $value) {
+            array_push($data, self::createModel($value, $tableClass));
+        }
+        return $data;
+    }
+
+    protected static function hasOne($tableClass, $onThis , $onTable = null){
+        self::createConection();
+        $onTable = $onTable == null ? $tableClass::$_id : $onTable;
+        $table = $tableClass::$_table;
+        $thisTable = static::$_table;
+        $data = [];
+        $query = "SELECT $table.* FROM $thisTable JOIN $table ON $table.$onTable =  $thisTable.$onThis";
+        return self::createModel(self::selectQuery($query)[0], $tableClass);
     }
 
     private static function createConection()

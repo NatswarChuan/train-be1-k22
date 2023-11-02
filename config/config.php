@@ -39,3 +39,9 @@ define("DATA_TYPE_MAPPINGS",[
     "longblob" => "b",
     "geometry" => "b"
 ]);
+
+
+function dd(...$agrs){
+    var_dump(...$agrs);
+    die;
+}

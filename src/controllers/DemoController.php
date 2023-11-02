@@ -2,7 +2,7 @@
 class DemoController extends Controller
 {
     public  function doGet()
-    {
+    { 
         return view("form");
     }
 
