@@ -2,9 +2,7 @@
 function view($path, $variables = [])
 {
     $path = ROOT_DIR . '/src/views/' . $path . '.php';
-    foreach ($variables as $key => $value) {
-        $$key = $value;
-    }
+    extract($variables);
     include ROOT_DIR . '/src/views/index.php';
 }
 
