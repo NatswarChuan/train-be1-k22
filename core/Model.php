@@ -20,13 +20,18 @@ abstract class Model
     ];
 
 
-    public function __construct()
+    public function __construct(...$data)
     {
         self::createConection();
         $query = "SELECT `COLUMN_NAME` AS name, `data_type` AS type FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?";
         foreach (self::selectQuery($query, "ss", [DB_NAME, static::$_table]) as $value) {
             $this->_dataType[TienIch::snakeToCamel($value["name"])] = DATA_TYPE_MAPPINGS[$value["type"]];
             $this->{TienIch::snakeToCamel($value["name"])} = null;
+        }
+        if($data != null){
+            foreach ($data  as $key => $value) {
+                $this->{TienIch::snakeToCamel($key)} = $value;
+            }
         }
     }
 
@@ -188,7 +193,6 @@ abstract class Model
         $typeId = static::$_idType;
         $_id = static::$_id;
         $data = self::selectQuery("SELECT * FROM $table where $_id = ?", $typeId, [$id])[0];
-
         return self::createModel($data);
     }
 
@@ -210,12 +214,9 @@ abstract class Model
 
     private static function createModel($data, $class = null)
     {
-        $class = $class == null ? static::class : $class;
-        $result = new $class();
-        foreach ($data  as $key => $value) {
-            $result->{TienIch::snakeToCamel($key)} = $value;
-        }
 
+        $class = $class == null ? static::class : $class;
+        $result = new $class(...$data);
         return $result;
     }
 
@@ -293,5 +294,9 @@ abstract class Model
             self::$_conection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT);
             self::$_conection->set_charset('utf8mb4');
         }
+    }
+
+    public function getId(){
+        return $this->{static::$_id};
     }
 }
