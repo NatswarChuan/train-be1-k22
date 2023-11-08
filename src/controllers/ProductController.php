@@ -9,10 +9,10 @@ class ProductController extends Controller
         return view("blocks/products_list", ["products" => $products]);
     }
 
-    public function id()
+    public function slug()
     {
-        $id = $this->request->params->id;
-        $product = Product::findById($id);
+        $slug = $this->request->params->slug;
+        $product = Product::where("slug",'=',$slug)->first();
         $product->categories();
         return view('blocks/product_detail', ["product" => $product]);
     }
