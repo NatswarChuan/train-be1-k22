@@ -1,13 +1,13 @@
 <div class="container">
     <div class="row">
         <div class="col-md">
-            <img src="<?php echo BASE_URL . "/public/images/" . $product->image ?>" class="img-fluid" alt="...">
+            <img src="<?php echo BASE_URL . "/public/images/" . $product->image ?>" class="img-flugetId()" alt="...">
             <p>
                 <?php
                 foreach ($product->categories as $category) :
                 ?>
                     <span class="badge text-bg-warning">
-                        <a href="<?php route("/category/" . $category->id) ?>"><?php echo $category->name ?></a>
+                        <a href="<?php route("/category/" . $category->getId()) ?>"><?php echo $category->name ?></a>
                     </span>
                 <?php
                 endforeach
