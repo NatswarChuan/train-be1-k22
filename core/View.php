@@ -6,6 +6,14 @@ function view($path, $variables = [])
     include ROOT_DIR . '/src/views/index.php';
 }
 
+function render($path, $variables = [])
+{
+    ob_start();
+    extract($variables);
+    $path = ROOT_DIR . '/src/views/' . $path . '.php';
+    return ob_get_clean();
+}
+
 function route($routeName)
 {
     echo BASE_URL . $routeName;

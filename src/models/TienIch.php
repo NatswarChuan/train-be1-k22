@@ -11,7 +11,7 @@ class TienIch
     }
 
 
-    static function vn_to_str($str)
+    static function vnToStr($str)
     {
 
         $unicode = array(
