@@ -30,9 +30,9 @@ abstract class Model
         }
     }
 
-    public static function baseWhere($col, $syntax, $value,$type)
+    public static function baseWhere($col, $syntax, $value, $type)
     {
-        if(static::$_query == null){
+        if (static::$_query == null) {
             static::$_query = new static;
         }
 
@@ -50,29 +50,29 @@ abstract class Model
 
     public static function orWhere($col, $syntax, $value)
     {
-        return self::baseWhere($col, $syntax, $value,"OR ");
+        return self::baseWhere($col, $syntax, $value, "OR ");
     }
 
     public static function where($col, $syntax, $value)
     {
-        return self::baseWhere($col, $syntax, $value,"AND ");
+        return self::baseWhere($col, $syntax, $value, "AND ");
     }
 
-    public static function join($table, $onTable, $onThis = null,$thisTable = null)
+    public static function join($table, $onTable, $onThis = null, $thisTable = null)
     {
-        if(static::$_query == null){
+        if (static::$_query == null) {
             static::$_query = new static;
         }
         $onThis = $onThis == null ? $onThis : static::$_id;
         $thisTable = $thisTable  ? $thisTable  : static::$_table;
         static::$_query->query['joins'] .= " JOIN $table ON $table.$onTable = $thisTable.$onThis";
-        var_dump(" JOIN $table ON $table.$onTable = $thisTable.$onThis",$onTable);
+        var_dump(" JOIN $table ON $table.$onTable = $thisTable.$onThis", $onTable);
         return static::$_query;
     }
 
     public static function groupBy($col)
     {
-        if(static::$_query == null){
+        if (static::$_query == null) {
             static::$_query = new static;
         }
         array_push(static::$_query->query["groupBy"], $col);
@@ -81,7 +81,7 @@ abstract class Model
 
     public static function orderBy($col, $type = "DESC")
     {
-        if(static::$_query == null){
+        if (static::$_query == null) {
             static::$_query = new static;
         }
         array_push(static::$_query->query["orderBy"], "$col $type");
@@ -90,7 +90,7 @@ abstract class Model
 
     public static function get($params = ["*"])
     {
-        if(static::$_query == null){
+        if (static::$_query == null) {
             static::$_query = new static;
         }
         self::createConection();
@@ -121,10 +121,10 @@ abstract class Model
             array_push(static::$_query->query["values"], static::$_query->query["limitCount"]);
             static::$_query->query["valueTypes"] .= "ii";
         }
-      
-        $data = self::selectQuery($query, static::$_query->query["valueTypes"],static::$_query->query["values"]);
+
+        $data = self::selectQuery($query, static::$_query->query["valueTypes"], static::$_query->query["values"]);
         foreach ($data as $value) {
-            array_push($result, self::createModel( $value));
+            array_push($result, self::createModel($value));
         }
 
         static::$_query->query = [
@@ -141,8 +141,9 @@ abstract class Model
         return $result;
     }
 
-    public static function first($params = ["*"]){
-        if(static::$_query == null){
+    public static function first($params = ["*"])
+    {
+        if (static::$_query == null) {
             static::$_query = new static;
         }
         return static::$_query->get($params)[0];
@@ -184,7 +185,7 @@ abstract class Model
         $result = [];
         $table = static::$_table;
         self::createConection();
-        $params = implode(",",$params);
+        $params = implode(",", $params);
         $sql = self::$conection->prepare("SELECT $params FROM $table");
         $data = self::select($sql);
 
@@ -214,6 +215,16 @@ abstract class Model
         return self::select($sql);
     }
 
+    public static function raw($query, $type, $data, $class)
+    {
+        $dataQuery = self::selectQuery($query, $type, $data);
+        $result = [];
+        foreach ($dataQuery as $value) {
+            array_push($result, self::createModel($value, $class));
+        }
+        return $result;
+    }
+
     public static function select($sql)
     {
         $items = [];
@@ -222,7 +233,8 @@ abstract class Model
         return $items;
     }
 
-    protected static function belongToMany($tableClass, $relationTable, $relationTableId = null, $relationThisTableId = null){
+    protected static function belongToMany($tableClass, $relationTable, $relationTableId = null, $relationThisTableId = null)
+    {
         self::createConection();
         $relationTableId =  $relationTableId == null ? $tableClass::$_id : $relationTableId;
         $relationThisTableId = $relationThisTableId == null ? static::$_id : $relationThisTableId;
@@ -238,7 +250,8 @@ abstract class Model
         return $data;
     }
 
-    protected static function hasMany($tableClass, $onTable , $onThis = null){
+    protected static function hasMany($tableClass, $onTable, $onThis = null)
+    {
         self::createConection();
         $onThis = $onThis == null ? static::$_id : $onThis;
         $table = $tableClass::$_table;
@@ -252,7 +265,8 @@ abstract class Model
         return $data;
     }
 
-    protected static function hasOne($tableClass, $onThis , $onTable = null){
+    protected static function hasOne($tableClass, $onThis, $onTable = null)
+    {
         self::createConection();
         $onTable = $onTable == null ? $tableClass::$_id : $onTable;
         $table = $tableClass::$_table;
