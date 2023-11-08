@@ -48,6 +48,17 @@ abstract class Model
         return static::$_query;
     }
 
+    public static function limit($limitStart, $limitCount)
+    {
+        if (static::$_query == null) {
+            static::$_query = new static;
+        }
+        static::$_query->__query["limitStart"] = $limitStart;
+        static::$_query->__query["limitCount"] = $limitCount;
+       
+        return static::$_query;
+    }
+
     public static function orWhere($col, $syntax, $value)
     {
         return self::baseWhere($col, $syntax, $value, "OR ");
@@ -215,7 +226,7 @@ abstract class Model
         return self::select($sql);
     }
 
-    public static function raw($query, $type, $data, $class)
+    public static function raw($query, $class, $type = null, $data = [])
     {
         $dataQuery = self::selectQuery($query, $type, $data);
         $result = [];
@@ -233,7 +244,7 @@ abstract class Model
         return $items;
     }
 
-    protected static function belongToMany($tableClass, $relationTable, $relationTableId = null, $relationThisTableId = null)
+    protected static function belongToMany($tableClass, $relationTable , $where, $relationTableId = null, $relationThisTableId = null)
     {
         self::createConection();
         $relationTableId =  $relationTableId == null ? $tableClass::$_id : $relationTableId;
@@ -243,37 +254,36 @@ abstract class Model
         $thisId = static::$_id;
         $tableId = $tableClass::$_id;
         $data = [];
-        $query = "SELECT $table.* FROM $thisTable JOIN $relationTable ON $relationTable.$relationThisTableId =  $thisTable.$thisId JOIN $table ON $table.$tableId = $relationTable.$relationTableId";
-        foreach (self::selectQuery($query) as $key => $value) {
+        $query = "SELECT $table.* FROM $thisTable JOIN $relationTable ON $relationTable.$relationThisTableId =  $thisTable.$thisId JOIN $table ON $table.$tableId = $relationTable.$relationTableId WHERE $thisTable.$thisId = ?";
+        foreach (self::selectQuery($query, static::$_idType, [$where]) as $key => $value) {
             array_push($data, self::createModel($value, $tableClass));
         }
         return $data;
     }
 
-    protected static function hasMany($tableClass, $onTable, $onThis = null)
+    protected static function hasMany($tableClass, $onTable, $where, $onThis = null)
     {
         self::createConection();
         $onThis = $onThis == null ? static::$_id : $onThis;
         $table = $tableClass::$_table;
         $thisTable = static::$_table;
         $data = [];
-        $query = "SELECT $table.* FROM $thisTable JOIN $table ON $table.$onTable =  $thisTable.$onThis";
+        $query = "SELECT $table.* FROM $thisTable JOIN $table ON $table.$onTable =  $thisTable.$onThis WHERE $thisTable.$onThis = ?";
 
-        foreach (self::selectQuery($query) as $key => $value) {
+        foreach (self::selectQuery($query, static::$_idType, [$where]) as $key => $value) {
             array_push($data, self::createModel($value, $tableClass));
         }
         return $data;
     }
 
-    protected static function hasOne($tableClass, $onThis, $onTable = null)
+    protected static function hasOne($tableClass, $onThis, $where, $onTable = null)
     {
         self::createConection();
         $onTable = $onTable == null ? $tableClass::$_id : $onTable;
         $table = $tableClass::$_table;
         $thisTable = static::$_table;
-        $data = [];
-        $query = "SELECT $table.* FROM $thisTable JOIN $table ON $table.$onTable =  $thisTable.$onThis";
-        return self::createModel(self::selectQuery($query)[0], $tableClass);
+        $query = "SELECT $table.* FROM $thisTable JOIN $table ON $table.$onTable =  $thisTable.$onThis WHERE $thisTable.$onThis = ?";
+        return self::createModel(self::selectQuery($query, static::$_idType, [$where])[0], $tableClass);
     }
 
     private static function createConection()
