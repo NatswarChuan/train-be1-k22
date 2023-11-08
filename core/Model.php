@@ -168,7 +168,8 @@ abstract class Model
         $data = [];
 
         foreach ($this->_dataType  as $key => $value) {
-            array_push($update, "$key = ?");
+            $col = TienIch::camelToSnake($key);
+            array_push($update, "$col = ?");
             array_push($data, $this->{$key});
         }
 
