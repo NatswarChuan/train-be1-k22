@@ -16,7 +16,7 @@
     include_once FOOTER;
     ?>
     <!-- <script src="https://cdn.ckeditor.com/4.16.2/standard/ckeditor.js"></script>
-    <script src="<?php echo BASE_URL ?>/public/ckfinder/ckfinder.js"></script>
+    <script src="<?php //echo BASE_URL ?>/public/ckfinder/ckfinder.js"></script>
 
     <script>
         var editor = CKEDITOR.replace('editor1');
