@@ -1,2 +1,5 @@
 <?php
-$router->setNotFound('/src/views/404.php');
+
+Router::get("/","ProductController@index");
+Router::get("/category/{id}","CategoryController@id");
+Router::get("/product/{slug}","ProductController@slug");

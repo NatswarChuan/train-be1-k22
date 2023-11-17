@@ -17,31 +17,28 @@ define('CATALOG_PER_PAGE', 9);
 define('BLOG_PER_PAGE', 3);
 define('CORS_ORGIN', '*');
 define('CORS_HEADER', '*');
-define("DATA_TYPE_MAPPINGS",[
-    "int" => "i",
-    "tinyint" => "i",
-    "smallint" => "i",
-    "mediumint" => "i",
-    "bigint" => "i",
-    "float" => "d",
-    "double" => "d",
-    "decimal" => "d",
-    "date" => "s",
-    "time" => "s",
-    "datetime" => "s",
-    "timestamp" => "s",
-    "boolean" => "i",
-    "enum" => "s",
-    "set" => "s",
-    "varchar" => "s",
-    "text" => "s",
-    "blob" => "b",
-    "longblob" => "b",
-    "geometry" => "b"
-]);
-
-
-function dd(...$agrs){
-    var_dump(...$agrs);
-    die;
-}
+define("DATA_TYPE_MAPPING", array(
+    'tinyint' => 'i',
+    'smallint' => 'i',
+    'mediumint' => 'i',
+    'int' => 'i',
+    'bigint' => 'i',
+    'float' => 'd',
+    'double' => 'd',
+    'decimal' => 'd',
+    'char' => 's',
+    'varchar' => 's',
+    'text' => 's',
+    'mediumtext' => 's',
+    'longtext' => 's',
+    'date' => 's',
+    'time' => 's',
+    'datetime' => 's',
+    'timestamp' => 's',
+    'binary' => 's',
+    'varbinary' => 's',
+    'blob' => 's',
+    'tinyblob' => 's',
+    'mediumblob' => 's',
+    'longblob' => 's'
+));

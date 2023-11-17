@@ -1,302 +1,262 @@
 <?php
 abstract class Model
 {
-    public static $_conection = null;
-    public static $_query;
-    public static $_table = '';
-    public static $_id = 'id';
-    public static $_idType = 'i';
-
-    private $_dataType = [];
-    private $__query = [
-        'where' => "1",
-        'joins' => "",
-        "values" => [],
-        "valueTypes" => "",
-        "limitStart" => 0,
-        "limitCount" => 0,
-        "groupBy" => [],
-        "orderBy" => []
+    public static $__table = '';
+    public static $__id = 'id';
+    public static $__idType = 'i';
+    private static $__conn = null;
+    private static $__self = null;
+    private static $__query = [
+        "WHERE" => "1",
+        "PARAMS" => [],
+        "PARAMS_TYPE" => "",
+        "LIMIT" => [],
+        "ORDER_BY" => [],
+        "GROUP_BY" => [],
     ];
+    public static $__col = [];
 
-
-    public function __construct(...$data)
+    public function __construct(...$agrs)
     {
-        self::createConection();
-        $query = "SELECT `COLUMN_NAME` AS name, `data_type` AS type FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?";
-        foreach (self::selectQuery($query, "ss", [DB_NAME, static::$_table]) as $value) {
-            $this->_dataType[TienIch::snakeToCamel($value["name"])] = DATA_TYPE_MAPPINGS[$value["type"]];
-            $this->{TienIch::snakeToCamel($value["name"])} = null;
+        if (static::$__conn == null) {
+            static::createConnection();
         }
-        if($data != null){
-            foreach ($data  as $key => $value) {
-                $this->{TienIch::snakeToCamel($key)} = $value;
+        $database = DB_NAME;
+        $table = static::$__table;
+        $sql = "SELECT `COLUMN_NAME` as col,`DATA_TYPE` as type FROM `INFORMATION_SCHEMA`.`COLUMNS` WHERE `TABLE_SCHEMA`='$database' AND `TABLE_NAME`='$table'";
+        $query = static::$__conn->prepare($sql);
+        $query->execute();
+        $result = $query->get_result();
+        if ($result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
+                static::$__col[$row["col"]] = DATA_TYPE_MAPPING[$row["type"]];
             }
         }
+        $query->close();
+        foreach ($agrs as $key => $value) {
+            $this->{snakeToCamel($key)} = $value;
+        }
     }
 
-    private static function baseWhere($col, $syntax, $value, $type)
-    {
-        if (static::$_query == null) {
-            static::$_query = new static;
-        }
-
-        if (static::$_query->__query['where'] == "1") {
-            static::$_query->__query['where'] = "";
-        }
-        if (strlen(static::$_query->__query['where'])) {
-            static::$_query->__query['where'] .= $type;
-        }
-        static::$_query->__query['where'] .= "$col $syntax ?";
-        array_push(static::$_query->__query["values"], $value);
-        static::$_query->__query["valueTypes"] .= static::$_query->_dataType[TienIch::camelToSnake($col)];
-        return static::$_query;
+    public static function all($params = ["*"]){
+        $params = implode(",", $params);
+        $table = static::$__table;
+        $sql = "SELECT $params FROM $table";
+        return static::raw($sql);
     }
 
-    public static function limit($limitStart, $limitCount)
-    {
-        if (static::$_query == null) {
-            static::$_query = new static;
-        }
-        static::$_query->__query["limitStart"] = $limitStart;
-        static::$_query->__query["limitCount"] = $limitCount;
-       
-        return static::$_query;
+    public static function first($params = ["*"]){
+        return static::get($params)[0];
     }
 
-    public static function orWhere($col, $syntax, $value)
+    public static function findById($id, $params = ["*"])
     {
-        return self::baseWhere($col, $syntax, $value, "OR ");
+        $params = implode(",", $params);
+        $table = static::$__table;
+        $tableId = static::$__id;
+        $sql = "SELECT $params FROM $table WHERE $tableId = ?";
+        $params = [$id];
+        $paramsType = static::$__idType;
+        return static::raw($sql, $params, $paramsType)[0];
     }
 
-    public static function where($col, $syntax, $value)
+    public static function where($col, $pattern, $value)
     {
-        return self::baseWhere($col, $syntax, $value, "AND ");
+        static::baseWhere($col, $pattern, $value);
+        return static::$__self;
     }
 
-    public static function join($table, $onTable, $onThis = null, $thisTable = null)
+    public static function orWhere($col, $pattern, $value)
     {
-        if (static::$_query == null) {
-            static::$_query = new static;
-        }
-        $onThis = $onThis == null ? $onThis : static::$_id;
-        $thisTable = $thisTable  ? $thisTable  : static::$_table;
-        static::$_query->__query['joins'] .= " JOIN $table ON $table.$onTable = $thisTable.$onThis";
-        var_dump(" JOIN $table ON $table.$onTable = $thisTable.$onThis", $onTable);
-        return static::$_query;
+        static::baseWhere($col, $pattern, $value, " OR ");
+        return static::$__self;
+    }
+
+    private static function baseWhere($col, $pattern, $value, $option = " AND")
+    {
+        static::createSelf();
+        static::$__query["WHERE"] .= "$option $col $pattern ?";
+        array_push(static::$__query["PARAMS"], $value);
+        static::$__query["PARAMS_TYPE"] .= static::$__col[$col];
+    }
+
+    public static function limit($start, $count)
+    {
+        static::createSelf();
+        static::$__query["LIMIT"]["start"] = $start;
+        static::$__query["LIMIT"]["count"] = $count;
+        return static::$__self;
+    }
+
+    public static function orderBy($col, $option = "DESC")
+    {
+        static::createSelf();
+        array_push(static::$__query["ORDER_BY"], "$col $option");
+        return static::$__self;
     }
 
     public static function groupBy($col)
     {
-        if (static::$_query == null) {
-            static::$_query = new static;
-        }
-        array_push(static::$_query->__query["groupBy"], $col);
-        return static::$_query;
-    }
-
-    public static function orderBy($col, $type = "DESC")
-    {
-        if (static::$_query == null) {
-            static::$_query = new static;
-        }
-        array_push(static::$_query->__query["orderBy"], "$col $type");
-        return static::$_query;
+        static::createSelf();
+        array_push(static::$__query["GROUP_BY"], $col);
+        return static::$__self;
     }
 
     public static function get($params = ["*"])
     {
-        if (static::$_query == null) {
-            static::$_query = new static;
-        }
-        self::createConection();
-        $result = [];
-        $select = implode(", ", $params);
-        $joins = static::$_query->__query["joins"];
-        $where = static::$_query->__query["where"];
-
-        $groupBy = "";
-        if (count(static::$_query->__query["groupBy"]) > 0) {
-            $groupBy = static::$_query->__query["groupBy"];
-            $groupBy = implode(", ", $groupBy);
-            $groupBy .= "GROUP BY $groupBy";
-        }
-
+        static::createSelf();
+        $limit = "";
         $orderBy = "";
-        if (count(static::$_query->__query["orderBy"]) > 0) {
-            $orderBy = static::$_query->__query["orderBy"];
-            $orderBy = implode(", ", $orderBy);
-            $orderBy .= "ORDER BY $orderBy";
+        $groupBy = "";
+        if (static::$__query["LIMIT"] != []) {
+            $limit = "LIMIT " . implode(",", static::$__query["LIMIT"]);
         }
-
-        $table = static::$_table;
-        $query = "SELECT $select FROM $table $joins WHERE $where $groupBy $orderBy";
-        if (static::$_query->__query["limitCount"] > 0) {
-            $query .= " LIMIT ?, ?";
-            array_push(static::$_query->__query["values"], static::$_query->__query["limitStart"]);
-            array_push(static::$_query->__query["values"], static::$_query->__query["limitCount"]);
-            static::$_query->__query["valueTypes"] .= "ii";
+        if (static::$__query["ORDER_BY"] != []) {
+            $orderBy = "ORDER BY " . implode(",", static::$__query["ORDER_BY"]);
         }
-
-        $data = self::selectQuery($query, static::$_query->__query["valueTypes"], static::$_query->__query["values"]);
-        foreach ($data as $value) {
-            array_push($result, self::createModel($value));
+        if (static::$__query["GROUP_BY"] != []) {
+            $groupBy = "GROUP BY " . implode(",", static::$__query["GROUP_BY"]);
         }
-
-        static::$_query->__query = [
-            'where' => "1",
-            'joins' => "",
-            "values" => [],
-            "valueTypes" => "",
-            "limitStart" => 0,
-            "limitCount" => 0,
-            "groupBy" => [],
-            "orderBy" => ""
-        ];;
-
-        return $result;
+        $table = static::$__table;
+        $params = implode(",", $params);
+        $where = static::$__query["WHERE"];
+        $values = static::$__query["PARAMS"];
+        $paramsType = static::$__query["PARAMS_TYPE"];
+        $query = "SELECT $params FROM $table WHERE $where $groupBy $orderBy $limit";
+        static::$__query = [
+            "WHERE" => "1",
+            "PARAMS" => [],
+            "PARAMS_TYPE" => "",
+            "LIMIT" => [],
+            "ORDER_BY" => [],
+            "GROUP_BY" => [],
+        ];
+        return static::raw($query, $values, $paramsType);
     }
 
-    public static function first($params = ["*"])
+    public static function raw($sql, $params = null, $paramsType = null)
     {
-        if (static::$_query == null) {
-            static::$_query = new static;
+        if (static::$__conn == null) {
+            static::createConnection();
         }
-        return static::$_query->get($params)[0];
+        $query = static::$__conn->prepare($sql);
+        !(empty($params) & empty($paramsType)) && $query->bind_param($paramsType, ...$params);
+        $query->execute();
+        $data = array();
+        $result = $query->get_result();
+        $class = static::class;
+        if ($result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
+                $data[] = new $class(...$row);
+            }
+        }
+        $query->close();
+        return $data;
+    }
+
+    private static function createSelf()
+    {
+        if (static::$__self == null) {
+            $class = static::class;
+            static::$__self = new $class();
+        }
+    }
+
+    private static function createConnection()
+    {
+        static::$__conn = mysqli_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT);
+    }
+
+    public static function delete()
+    {
+        $table = static::$__table;
+        $where = static::$__query["WHERE"];
+        $values = static::$__query["PARAMS"];
+        $paramsType = static::$__query["PARAMS_TYPE"];
+        $sql = "DELETE FROM $table WHERE $where";
+        static::$__query = [
+            "WHERE" => "1",
+            "PARAMS" => [],
+            "PARAMS_TYPE" => "",
+            "LIMIT" => [],
+            "ORDER_BY" => [],
+            "GROUP_BY" => [],
+        ];
+        $query = static::$__conn->prepare($sql);
+        !(empty($params) & empty($paramsType)) && $query->bind_param($paramsType, ...$values);
+        $query->execute();
     }
 
     public function save()
     {
-        self::createConection();
-        $table = static::$_table;
-        $update = [];
+        $table = static::$__table;
+        $col = [];
+        $params = [];
         $data = [];
+        $paramsType = [];
 
-        foreach ($this->_dataType  as $key => $value) {
-            $col = TienIch::camelToSnake($key);
-            array_push($update, "$col = ?");
-            array_push($data, $this->{$key});
+        foreach (static::$__col as $key => $value) {
+            array_push($col, $key);
+            array_push($paramsType, $value);
+            array_push($params, "?");
+            array_push($data, $this->{snakeToCamel($key)});
         }
-
-        $type = implode("", $this->_dataType);
-        $update = implode(",", $update);
-        $query = "REPLACE $table SET $update";
-
-        $sql = self::$_conection->prepare($query);
-        $sql->bind_param($type, ...$data);
-        $sql->execute();
-    }
-
-    public static function findById($id)
-    {
-        $table = static::$_table;
-        $typeId = static::$_idType;
-        $_id = static::$_id;
-        $data = self::selectQuery("SELECT * FROM $table where $_id = ?", $typeId, [$id])[0];
-        return self::createModel($data);
-    }
-
-    public static function all($params = ["*"])
-    {
-        $result = [];
-        $table = static::$_table;
-        self::createConection();
+        $col = implode(",", $col);
         $params = implode(",", $params);
-        $sql = self::$_conection->prepare("SELECT $params FROM $table");
-        $data = self::select($sql);
+        $paramsType = implode("", $paramsType);
 
-        foreach ($data as $value) {
-            array_push($result, self::createModel($value));
+        $sql = "REPLACE INTO $table($col) VALUES ($params)";
+
+        if (static::$__conn == null) {
+            static::createConnection();
         }
-
-        return $result;
+        $query = static::$__conn->prepare($sql);
+        $query->bind_param($paramsType, ...$data);
+        $query->execute();
     }
 
-    private static function createModel($data, $class = null)
+    public function hasOne($class, $classId, $tableId)
     {
-
-        $class = $class == null ? static::class : $class;
-        $result = new $class(...$data);
-        return $result;
+        return $this->hasMany($class, $classId, $tableId)[0];
     }
 
-    private static function selectQuery($query, $type = null, $data = [])
+    public function hasMany($class, $classId, $tableId)
     {
-        self::createConection();
-        $sql = self::$_conection->prepare($query);
-        !empty($type) && $sql->bind_param($type, ...$data);
-        return self::select($sql);
-    }
-
-    public static function raw($query, $class, $type = null, $data = [])
-    {
-        $dataQuery = self::selectQuery($query, $type, $data);
-        $result = [];
-        foreach ($dataQuery as $value) {
-            array_push($result, self::createModel($value, $class));
-        }
-        return $result;
-    }
-
-    private static function select($sql)
-    {
-        $items = [];
-        $sql->execute();
-        $items = $sql->get_result()->fetch_all(MYSQLI_ASSOC);
-        return $items;
-    }
-
-    protected static function belongToMany($tableClass, $relationTable , $where, $relationTableId = null, $relationThisTableId = null)
-    {
-        self::createConection();
-        $relationTableId =  $relationTableId == null ? $tableClass::$_id : $relationTableId;
-        $relationThisTableId = $relationThisTableId == null ? static::$_id : $relationThisTableId;
-        $table = $tableClass::$_table;
-        $thisTable = static::$_table;
-        $thisId = static::$_id;
-        $tableId = $tableClass::$_id;
+        $id = static::$__id;
+        $classTable = $class::$__table;
+        $table = static::$__table;
+        $sql = "SELECT $classTable.* FROM $table JOIN $classTable ON $table.$tableId = $classTable.$classId WHERE $table.$id = ?";
+        $query = static::$__conn->prepare($sql);
+        $query->bind_param(static::$__idType, $this->{snakeToCamel($tableId)});
+        $query->execute();
         $data = [];
-        $query = "SELECT $table.* FROM $thisTable JOIN $relationTable ON $relationTable.$relationThisTableId =  $thisTable.$thisId JOIN $table ON $table.$tableId = $relationTable.$relationTableId WHERE $thisTable.$thisId = ?";
-        foreach (self::selectQuery($query, static::$_idType, [$where]) as $key => $value) {
-            array_push($data, self::createModel($value, $tableClass));
+        $result = $query->get_result();
+        if ($result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
+                $data[] = new $class(...$row);
+            }
         }
+        $query->close();
         return $data;
     }
 
-    protected static function hasMany($tableClass, $onTable, $where, $onThis = null)
+    public function belongsToMany($class, $joinTable, $classIdJoin, $tableIdJoin, $classId, $tableId)
     {
-        self::createConection();
-        $onThis = $onThis == null ? static::$_id : $onThis;
-        $table = $tableClass::$_table;
-        $thisTable = static::$_table;
+        $classTable = $class::$__table;
+        $table = static::$__table;
+        $id = static::$__id;
+        $sql = "SELECT $classTable.* FROM $table JOIN $joinTable ON $joinTable.$tableIdJoin = $table.$tableId JOIN $classTable ON $classTable.$classId = $joinTable.$classIdJoin WHERE $table.$id = ? ";
+        $query = static::$__conn->prepare($sql);
+        $query->bind_param(static::$__idType, $this->{snakeToCamel($tableId)});
+        $query->execute();
         $data = [];
-        $query = "SELECT $table.* FROM $thisTable JOIN $table ON $table.$onTable =  $thisTable.$onThis WHERE $thisTable.$onThis = ?";
-
-        foreach (self::selectQuery($query, static::$_idType, [$where]) as $key => $value) {
-            array_push($data, self::createModel($value, $tableClass));
+        $result = $query->get_result();
+        if ($result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
+                $data[] = new $class(...$row);
+            }
         }
+        $query->close();
         return $data;
-    }
-
-    protected static function hasOne($tableClass, $onThis, $where, $onTable = null)
-    {
-        self::createConection();
-        $onTable = $onTable == null ? $tableClass::$_id : $onTable;
-        $table = $tableClass::$_table;
-        $thisTable = static::$_table;
-        $query = "SELECT $table.* FROM $thisTable JOIN $table ON $table.$onTable =  $thisTable.$onThis WHERE $thisTable.$onThis = ?";
-        return self::createModel(self::selectQuery($query, static::$_idType, [$where])[0], $tableClass);
-    }
-
-    private static function createConection()
-    {
-        if (!self::$_conection) {
-            self::$_conection = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT);
-            self::$_conection->set_charset('utf8mb4');
-        }
-    }
-
-    public function getId(){
-        return $this->{static::$_id};
     }
 }
