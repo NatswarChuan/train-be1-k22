@@ -1,6 +1,5 @@
 <?php
-$router->setNotFound('/src/views/404.php');
 
-$router->get("/","ProductController","index");
-$router->get("/category/{id}","CategoryController","id");
-$router->get("/product/{slug}","ProductController","slug");
+Router::get("/","ProductController@index");
+Router::get("/category/{id}","CategoryController@id");
+Router::get("/product/{slug}","ProductController@slug");

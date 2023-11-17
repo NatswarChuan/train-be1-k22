@@ -14,7 +14,7 @@
                     foreach (Category::all() as $category) :
                     ?>
                         <li class="nav-item">
-                            <a class="nav-link" href="<?php route("/category/" . $category->getId()) ?>"><?php echo $category->name ?></a>
+                            <a class="nav-link" href="<?php route("/category/" . $category->id) ?>"><?php echo $category->name ?></a>
                         </li>
 
                     <?php

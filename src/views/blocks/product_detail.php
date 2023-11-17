@@ -7,7 +7,7 @@
                 foreach ($product->categories as $category) :
                 ?>
                     <span class="badge text-bg-warning">
-                        <a href="<?php route("/category/" . $category->getId()) ?>"><?php echo $category->name ?></a>
+                        <a href="<?php route("/category/" . $category->id) ?>"><?php echo $category->name ?></a>
                     </span>
                 <?php
                 endforeach

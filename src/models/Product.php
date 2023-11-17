@@ -1,9 +1,9 @@
 <?php
 class Product extends Model
 {
-    public static $_table = 'products';
+    public static $__table = 'products';
 
-    protected $id;
+    public $id;
     public $slug;
     public $name;
     public $price;
@@ -14,7 +14,7 @@ class Product extends Model
 
     public function categories()
     {
-        $this->categories = $this->belongToMany(Category::class, "category_product", $this->id, "category_id", "product_id");
+        $this->categories = $this->belongsToMany(Category::class,"category_product","category_id","product_id","id","id");
         return $this->categories;
     }
 }

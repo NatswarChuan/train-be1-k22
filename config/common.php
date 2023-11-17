@@ -1,17 +1,55 @@
 <?php
-class TienIch
+
+function dd(...$args)
 {
-    static function camelToSnake($input)
-    {
-        return strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $input));
-    }
-    static function snakeToCamel($input)
-    {
-        return lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $input))));
-    }
+    var_dump(...$args);
+    die;
+}
 
+function view($__view, $data)
+{
+    extract($data);
+    $__view = ROOT_DIR . "/src/views/$__view.php";
+    include ROOT_DIR . "/src/views/index.php";
+}
 
-    static function vnToStr($str)
+function route($routeName)
+{
+    echo BASE_URL . $routeName;
+}
+
+function OK($data)
+{
+    header("Access-Control-Allow-Origin: " . CORS_ORGIN);
+    header("Access-Control-Allow-Headers: " . CORS_HEADER);
+    http_response_code(200);
+    echo json_encode($data);
+    die;
+}
+
+function Failed()
+{
+    header("Access-Control-Allow-Origin: " . CORS_ORGIN);
+    header("Access-Control-Allow-Headers: " . CORS_HEADER);
+    http_response_code(400);
+    die;
+}
+
+function camelToSnake($input)
+{
+    return strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $input));
+}
+
+function snakeToCamel($input)
+{
+    return lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $input))));
+}
+
+function notFound(){
+    echo "404";
+}
+
+function vnToStr($str)
     {
 
         $unicode = array(
@@ -55,4 +93,3 @@ class TienIch
 
         return $str;
     }
-}

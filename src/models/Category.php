@@ -1,12 +1,12 @@
 <?php
 class Category extends Model{
-    public static $_table = 'categories';
-    protected $id;
+    public static $__table = 'categories';
+    public $id;
     public $name;
     public $products;
 
     function products(){
-        $this->products = $this->belongToMany(Product::class,"category_product",$this->id,"product_id","category_id");
+        $this->products = $this->belongsToMany(Product::class,"category_product","product_id","category_id","id","id");
         return $this->products;
     }
 }
