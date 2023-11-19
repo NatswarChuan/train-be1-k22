@@ -30,6 +30,8 @@ class Router
             $routeUri = explode("/", $key);
             if (count($requestUri) != count($routeUri)) {
                 continue;
+            }else{
+                $check = true;
             }
             $data = [];
             $resultRequestUri = $key;
