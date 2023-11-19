@@ -6,7 +6,7 @@ function dd(...$args)
     die;
 }
 
-function view($__view, $data)
+function view($__view, $data = [])
 {
     extract($data);
     $__view = ROOT_DIR . "/src/views/$__view.php";

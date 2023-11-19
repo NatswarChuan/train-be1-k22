@@ -1,5 +1,5 @@
 <?php
 
-Router::get("/","ProductController@index");
-Router::get("/category/{id}","CategoryController@id");
-Router::get("/product/{slug}","ProductController@slug");
+Router::get("/","HomeController@index");
+Router::get("/san-pham/{id}","HomeController@id");
+Router::get("/danh-muc/{id}","CategoryController@id");

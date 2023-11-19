@@ -31,6 +31,9 @@ class Router
             if (count($requestUri) != count($routeUri)) {
                 continue;
             }
+            else{
+                $check = true;
+            }
             $data = [];
             $resultRequestUri = $key;
             foreach ($requestUri as $requestUriKey => $requestUriValue) {
